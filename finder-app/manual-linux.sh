@@ -5,13 +5,7 @@
 set -e
 set -u
 
-export LIBRARY_PATH=$LIBRARY_PATH:/home/hosa200/arm_toolchain/arm-gnu-toolchain-13.3.rel1-x86_64-aarch64-none-linux-gnu/aarch64-none-linux-gnu/libc/lib:/home/hosa200/arm_toolchain/arm-gnu-toolchain-13.3.rel1-x86_64-aarch64-none-linux-gnu/lib:/home/hosa200/arm_toolchain/arm-gnu-toolchain-13.3.rel1-x86_64-aarch64-none-linux-gnu/lib64
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/hosa200/arm_toolchain/arm-gnu-toolchain-13.3.rel1-x86_64-aarch64-none-linux-gnu/aarch64-none-linux-gnu/libc/lib:/home/hosa200/arm_toolchain/arm-gnu-toolchain-13.3.rel1-x86_64-aarch64-none-linux-gnu/lib:/home/hosa200/arm_toolchain/arm-gnu-toolchain-13.3.rel1-x86_64-aarch64-none-linux-gnu/lib64
-export PATH=$PATH:/home/hosa200/arm_toolchain/arm-gnu-toolchain-13.3.rel1-x86_64-aarch64-none-linux-gnu/bin
-
-
-
-OUTDIR=/tmp/aeld
+OUTDIR=/home/hosa200/linux_img/
 KERNEL_REPO=git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git
 KERNEL_VERSION=v5.15.163
 BUSYBOX_VERSION=1_33_1
@@ -25,7 +19,7 @@ if [ $# -lt 1 ]
 then
 	echo "Using default directory ${OUTDIR} for output"
 else
-	OUTDIR=$1
+	#OUTDIR=$1
 	echo "Using passed directory ${OUTDIR} for output"
 fi
 
