@@ -12,9 +12,9 @@ BUSYBOX_VERSION=1_33_1
 FINDER_APP_DIR=$(realpath $(dirname $0))
 ARCH=arm64
 CROSS_COMPILE=aarch64-none-linux-gnu-
-SYSROOT=/home/hosa200/arm_toolchain/arm-gnu-toolchain-13.3.rel1-x86_64-aarch64-none-linux-gnu/bin/../aarch64-none-linux-gnu/libc
+SYSROOT=$(${CROSS_COMPILE}gcc -print-sysroot)
 
-
+echo $SYSROOT
 if [ $# -lt 1 ]
 then
 	echo "Using default directory ${OUTDIR} for output"
