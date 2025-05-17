@@ -57,8 +57,10 @@ pwd
 sudo mkdir -p -m 777 Image/ 
 FLD=$(pwd)
 sudo cp -a -L -r ${FLD}/arch/arm64/boot/Image ../Image
-cd ../Image
 ls -l
+cd /Image
+ls -l
+
 
 echo "Creating the staging directory for the root filesystem"
 cd "$OUTDIR"
