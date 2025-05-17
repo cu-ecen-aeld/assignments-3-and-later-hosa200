@@ -56,8 +56,9 @@ echo "Adding the Image in ${OUTDIR}"
 pwd
 sudo mkdir -p -m 777 Image/ 
 FLD=$(pwd)
-sudo cp -a ${FLD}/arch/arm64/boot/* ./Image
-
+sudo cp -a -L -r ${FLD}/arch/arm64/boot/Image ../Image
+cd ../Image
+ls -l
 
 echo "Creating the staging directory for the root filesystem"
 cd "$OUTDIR"
