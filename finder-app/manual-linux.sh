@@ -59,6 +59,7 @@ FLD=$(pwd)
 sudo cp -a -L -r ${FLD}/arch/arm64/boot/Image ../Image
 ls -l
 cd ../Image
+pwd
 ls -l
 
 
