@@ -58,7 +58,7 @@ sudo mkdir -p -m 777 ../Image/
 FLD=$(pwd)
 sudo cp -a -L -r ${FLD}/arch/arm64/boot/Image ../Image
 ls -l
-cd /Image
+cd ../Image
 ls -l
 
 
