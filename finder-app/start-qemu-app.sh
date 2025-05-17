@@ -4,8 +4,7 @@
 
 set -e
 
-#OUTDIR=$1
-OUTDIR=/home/hosa200/linux_img/
+OUTDIR=$1
 
 if [ -z "${OUTDIR}" ]; then
     OUTDIR=/tmp/aeld

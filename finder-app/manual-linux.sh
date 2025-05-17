@@ -19,7 +19,7 @@ if [ $# -lt 1 ]
 then
 	echo "Using default directory ${OUTDIR} for output"
 else
-	#OUTDIR=$1
+	OUTDIR=$1
 	echo "Using passed directory ${OUTDIR} for output"
 fi
 
@@ -112,22 +112,22 @@ ${CROSS_COMPILE}readelf -a busybox | grep "Shared library"
 echo "Copying Library dependencies for ${SYSROOT} to ${OUTDIR}/rootfs"
 pwd
 cd ../rootfs
-if [ -f $SYSROOT/lib/ld-linux-aarch64.so.1 ]; then
+#if [ -f $SYSROOT/lib/ld-linux-aarch64.so.1 ]; then
     echo "found ld-linux-aarch64.so.1"
     sudo cp -a $SYSROOT/lib/ld-linux-aarch64.so.1 lib
-fi
-if [ -f $SYSROOT/lib64/libm.so.6 ]; then
+#fi
+#if [ -f $SYSROOT/lib64/libm.so.6 ]; then
     echo "found libm.so.6 "
     sudo cp -a $SYSROOT/lib64/libm.so.6 lib64
-fi
-if [ -f $SYSROOT/lib64/libresolv.so.2 ]; then
+#fi
+#if [ -f $SYSROOT/lib64/libresolv.so.2 ]; then
     echo "found libresolv.so.2"
     sudo cp -a $SYSROOT/lib64/libresolv.so.2 lib64
-fi
-if [ -f $SYSROOT/lib64/libc.so.6 ]; then
+#fi
+#if [ -f $SYSROOT/lib64/libc.so.6 ]; then
     echo "found libc.so.6"
     sudo cp -a $SYSROOT/lib64/libc.so.6 lib64
-fi
+#fi
 
 # TODO: Make device nodes
 echo "Make device nodes"
