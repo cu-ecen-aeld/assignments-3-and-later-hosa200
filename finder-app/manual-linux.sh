@@ -54,7 +54,7 @@ fi
 
 echo "Adding the Image in ${OUTDIR}"
 pwd
-sudo mkdir -p -m 777 Image/ 
+sudo mkdir -p -m 777 ../Image/ 
 FLD=$(pwd)
 sudo cp -a -L -r ${FLD}/arch/arm64/boot/Image ../Image
 ls -l
