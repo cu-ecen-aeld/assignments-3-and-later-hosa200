@@ -1,0 +1,4 @@
+CROSS_COMPILE=aarch64-none-linux-gnu-
+#CROSS_COMPILE=
+make CROSS_COMPILE=${CROSS_COMPILE} clean
+make CROSS_COMPILE=${CROSS_COMPILE} all
