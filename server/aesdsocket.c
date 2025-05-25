@@ -59,8 +59,8 @@ int main(int argc, char *argv[])
     struct addrinfo hints;
     struct addrinfo *res;
     int status;
-    struct sockaddr their_addr;
-    socklen_t their_addr_len;
+    // struct sockaddr their_addr;
+    // socklen_t their_addr_len;
     char recv_buf[MAX_BUFFER_LEN] = {'\0'};
     char send_buf[MAX_BUFFER_LEN] = {'\0'};
     int recv_len = 0;
@@ -162,10 +162,11 @@ int main(int argc, char *argv[])
     }
 
     /* accept incoming connection */
-    their_addr_len = sizeof(their_addr);
+    // their_addr_len = sizeof(their_addr);
     while (1)
     {
-        new_sockfd = accept(sockfd, (struct sockaddr *)&their_addr, &their_addr_len);
+        new_sockfd = accept(sockfd, res->ai_addr, &res->ai_addrlen);
+        // new_sockfd = accept(sockfd, (struct sockaddr *)&their_addr, &their_addr_len);
         if (new_sockfd == -1)
         {
             /* Error to handle */
@@ -231,47 +232,50 @@ int main(int argc, char *argv[])
                 }
                 /* clear buffer */
                 memset(recv_buf, '\0', sizeof(recv_buf));
+
+                /* open file to read data */
+                file_fd = open(FILE_NAME, O_RDONLY, 0644);
+                if (file_fd == -1)
+                {
+                    /* error */
+                    printf("Error 9 %s\n", strerror(errno));
+                    syslog(LOG_INFO, "Error opening or creating the file\n");
+                    closelog();
+                    exit(1);
+                }
+                send_len = lseek(file_fd, 0, SEEK_END); // seek to end of file
+                status = lseek(file_fd, 0, SEEK_SET);   // seek back to beginning of file
+                status = read(file_fd, (void *)send_buf, send_len);
+                if (status == -1)
+                {
+                    /* error */
+                    printf("Error 10 %s\n", strerror(errno));
+                    syslog(LOG_INFO, "Error reading file: %s\n", FILE_NAME);
+                    closelog();
+                    exit(1);
+                }
+                /* write to client */
+                if (close(file_fd) == -1)
+                    syslog(LOG_INFO, "Error closing the file: %s\n", FILE_NAME);
+                status = send(new_sockfd, (void *)send_buf, send_len, 0); /*May be is not sending TODO:*/
+                if (status == -1)
+                {
+                    /* error */
+                    printf("Error 11 %s\n", strerror(errno));
+                    syslog(LOG_INFO, "Error sending back to socket\n");
+                    if (close(file_fd) == -1)
+                        syslog(LOG_INFO, "Error closing the file: %s\n", FILE_NAME);
+                    closelog();
+                    exit(1);
+                }
+
+                /* clear buffer */
+                memset(send_buf, '\0', sizeof(send_buf));
             }
             else
             {
                 /* if data recieved doesn't have \n */
             }
         }
-    }
-
-    /* open file to read data */
-    file_fd = open(FILE_NAME, O_RDONLY, 0644);
-    if (file_fd == -1)
-    {
-        /* error */
-        printf("Error 9 %s\n", strerror(errno));
-        syslog(LOG_INFO, "Error opening or creating the file\n");
-        closelog();
-        exit(1);
-    }
-    send_len = lseek(file_fd, 0, SEEK_END); // seek to end of file
-    status = lseek(file_fd, 0, SEEK_SET);   // seek back to beginning of file
-    status = read(file_fd, (void *)send_buf, send_len);
-    if (status == -1)
-    {
-        /* error */
-        printf("Error 10 %s\n", strerror(errno));
-        syslog(LOG_INFO, "Error reading file: %s\n", FILE_NAME);
-        closelog();
-        exit(1);
-    }
-    /* write to client */
-    if (close(file_fd) == -1)
-        syslog(LOG_INFO, "Error closing the file: %s\n", FILE_NAME);
-    status = send(new_sockfd, (void *)send_buf, send_len, 0); /*May be is not sending TODO:*/
-    if (status == -1)
-    {
-        /* error */
-        printf("Error 11 %s\n", strerror(errno));
-        syslog(LOG_INFO, "Error sending back to socket\n");
-        if (close(file_fd) == -1)
-            syslog(LOG_INFO, "Error closing the file: %s\n", FILE_NAME);
-        closelog();
-        exit(1);
     }
 }
