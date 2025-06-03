@@ -1,6 +1,6 @@
-CC = ${CROSS_COMPILE}gcc
-CFLAGS = -g -Wall -Werror
-TARGET = aesdsocket
+CC ?= ${CROSS_COMPILE}gcc
+CFLAGS ?= -g -Wall -Werror
+TARGET ?= aesdsocket
 OBJ = aesdsocket.o
 
 
