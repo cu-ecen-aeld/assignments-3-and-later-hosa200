@@ -2,7 +2,7 @@ CC ?= ${CROSS_COMPILE}gcc
 CFLAGS ?= -g -Wall -Werror
 TARGET ?= aesdsocket
 OBJ = aesdsocket.o
-
+LDFLAGS ?= -lpthread
 
 all: $(TARGET)
 
