@@ -18,10 +18,17 @@
 #include <stdbool.h>
 
 /* Defines */
+#define USE_AESD_CHAR_DEVICE 1
 #define MYPORT "9000" // the port users will be connecting to
 #define BACKLOG 10    // how many pending connections queue will hold
 #define LEN 100
-#define FILE_NAME "/var/tmp/aesdsocketdata"
+
+#if USE_AESD_CHAR_DEVICE
+    #define FILE_NAME "/dev/aesdchar"
+#else
+    #define FILE_NAME "/var/tmp/aesdsocketdata"
+#endif
+
 #define MAX_BUFFER_LEN 50000
 
 /* Types */
@@ -45,12 +52,18 @@ struct addrinfo *res;
 /* handler for SIGINT and SIGTERM */
 static void signal_handler(int signo)
 {
-    int status;
+#if USE_AESD_CHAR_DEVICE
 
+#else
+    int status = 0;
+#endif
     if ((signo == SIGINT) || (signo == SIGTERM))
     {
         // close(new_sockfd);
         close(sockfd);
+#if USE_AESD_CHAR_DEVICE
+
+#else
         status = remove(FILE_NAME);
         if (status == -1)
         {
@@ -60,6 +73,7 @@ static void signal_handler(int signo)
             closelog();
             exit(1);
         }
+#endif
         syslog(LOG_INFO, "Caught signal, exiting\n");
         closelog();
     }
@@ -138,7 +152,9 @@ static int socket_setup(void)
 
     return sockfd;
 }
+#if USE_AESD_CHAR_DEVICE
 
+#else
 static void write_clock_time(union sigval sv)
 {
     time_t now;
@@ -203,6 +219,7 @@ void startTimer(int firstRun, int interval) // both arguments in seconds
     ts.it_interval.tv_nsec = 0;
     timer_settime(timerId, 0, &ts, NULL);
 }
+#endif
 
 /* socket main handler */
 void *socket_main(void *node_addr)
@@ -345,7 +362,7 @@ int main(int argc, char *argv[])
     int new_sockfd;
     head_t tasks_head;
     node_t *tmp_node;
-    struct sockaddr * ai_addr;
+    struct sockaddr *ai_addr;
     socklen_t ai_addrlen;
 
     /* Intialize tasks_head */
@@ -403,8 +420,6 @@ int main(int argc, char *argv[])
         }
     }
 
-
-
     /* listen to that socket */
     status = listen(sockfd, BACKLOG);
     if (status != 0)
@@ -416,10 +431,14 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    ai_addr =  res-> ai_addr;
+    ai_addr = res->ai_addr;
     ai_addrlen = res->ai_addrlen;
-    
+
+#if USE_AESD_CHAR_DEVICE
+#else
     startTimer(1, 10);
+#endif
+
     /* accept incoming connection */
     while (1)
     {
@@ -427,7 +446,7 @@ int main(int argc, char *argv[])
         if (new_sockfd == -1)
         {
             /* Error to handle */
-            
+
             printf("Error 5 %s\n", strerror(errno));
             syslog(LOG_INFO, "Exit program due to accept failure ID: %d\n", new_sockfd);
             closelog();
