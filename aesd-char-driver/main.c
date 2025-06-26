@@ -26,7 +26,7 @@ int aesd_minor = 0;
 MODULE_AUTHOR("Hossam Batekh");
 MODULE_LICENSE("Dual BSD/GPL");
 
-struct aesd_dev* aesd_device;
+struct aesd_dev *aesd_device;
 struct aesd_circular_buffer buffer;
 char *local_buf[50];
 char buf_page_no;
@@ -34,13 +34,12 @@ char append_page;
 char *read_buf;
 size_t read_size;
 
-
 int aesd_open(struct inode *inode, struct file *filp)
 {
     /* device info */
     struct aesd_dev *dev;
 
-    PDEBUG("open");
+    PDEBUG("open start");
 
     /* get cdev location */
     dev = container_of(inode->i_cdev, struct aesd_dev, cdev);
@@ -59,12 +58,14 @@ int aesd_open(struct inode *inode, struct file *filp)
         memset(local_buf, 0, 50 * sizeof(char));
         mutex_unlock(&dev->lock);
     }
+
+    PDEBUG("open ok");
     return 0;
 }
 
 int aesd_release(struct inode *inode, struct file *filp)
 {
-    PDEBUG("release");
+    PDEBUG("close");
     /**
      * TODO: handle release
      */
@@ -76,25 +77,36 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
 {
     ssize_t retval = 0;
     struct aesd_dev *dev = filp->private_data;
-    struct aesd_buffer_entry * return_buf;
+    struct aesd_buffer_entry *return_buf;
 
     PDEBUG("read %zu bytes with offset %lld", count, *f_pos);
 
     if (mutex_lock_interruptible(&dev->lock))
-        return -ERESTARTSYS;
-
-    return_buf = aesd_circular_buffer_find_entry_offset_for_fpos(&buffer,(size_t)*f_pos,&read_size);
-    if (return_buf!= NULL)
     {
-        copy_to_user(buf,return_buf->buffptr[read_size],count);
+        PDEBUG("Error %d", ERESTARTSYS);
+        return -ERESTARTSYS;
+    }
+
+    return_buf = aesd_circular_buffer_find_entry_offset_for_fpos(&buffer, (size_t)*f_pos, &read_size);
+    if (return_buf != NULL)
+    {
+        if (copy_to_user(buf, return_buf->buffptr[read_size], count))
+        {
+            PDEBUG("Error writing %d to userspace",return_buf->buffptr[read_size]);
+            retval = -EFAULT;
+            goto out;
+        }
+        else
+            PDEBUG("Reading data is okay ?");
     }
     else
     {
+        PDEBUG("Reading is failing, returning ");
         goto out;
     }
-    out:
-	mutex_unlock(&dev->lock);
-	return retval;
+out:
+    mutex_unlock(&dev->lock);
+    return retval;
 }
 
 ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
@@ -107,42 +119,63 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     PDEBUG("write %zu bytes with offset %lld", count, *f_pos);
 
     if (mutex_lock_interruptible(&dev->lock))
+    {
+        PDEBUG("Error %d", ERESTARTSYS);
         return -ERESTARTSYS;
+    }
 
     local_buf[buf_page_no] = kmalloc(sizeof(char) * count, GFP_KERNEL); /* allocate memory */
     if (copy_from_user(local_buf[buf_page_no], buf, count))             /* copy to kernal space memory */
     {
+        PDEBUG("Error copying from userspace");
         retval = -EFAULT;
         goto out;
     }
-    if ((local_buf[buf_page_no])[count - 1] == '\n') /* write only if the data ends with a terminator */
+    if (local_buf[buf_page_no][count - 1] == '\n') /* write only if the data ends with a terminator */
     {
+        PDEBUG("data with terminator found");
         if (append_page) /* if a terminator found with many pages */
         {
+            PDEBUG("data is appended");
+            append_page = 0;
             for (; buf_page_no >= 0; buf_page_no--) /* loop on all pages, write them and free local buffer */
             {
                 add_entry.buffptr = local_buf[buf_page_no];
                 add_entry.size = count;
                 aesd_circular_buffer_add_entry(&buffer, &add_entry);
                 kfree(local_buf[buf_page_no]);
+                PDEBUG("writing page %d", buf_page_no);
             }
         }
         else
         {
+            PDEBUG("write single page data %d",*add_entry.buffptr);
             add_entry.buffptr = local_buf[buf_page_no];
             add_entry.size = count;
             aesd_circular_buffer_add_entry(&buffer, &add_entry);
             kfree(local_buf[buf_page_no]);
+            PDEBUG("write single page data done %d",*buffer.entry[0].buffptr);
+            PDEBUG("write single page data done %d",*buffer.entry[1].buffptr);
+            PDEBUG("write single page data done %d",*buffer.entry[2].buffptr);
+            PDEBUG("write single page data done %d",*buffer.entry[3].buffptr);
+            PDEBUG("write single page data done %d",*buffer.entry[4].buffptr);
+            PDEBUG("write single page data done %d",*buffer.entry[5].buffptr);
+            PDEBUG("write single page data done %d",*buffer.entry[6].buffptr);
+            PDEBUG("write single page data done %d",*buffer.entry[7].buffptr);
+            PDEBUG("write single page data done %d",*buffer.entry[8].buffptr);
+            PDEBUG("write single page data done %d",*buffer.entry[9].buffptr);
         }
     }
     else
     {
         buf_page_no++;
+        PDEBUG("data without terminator found,now page %d", buf_page_no);
         append_page = 1;
     }
     goto out;
 
 out:
+    buf_page_no = 0;
     mutex_unlock(&dev->lock);
     return retval;
 }
@@ -168,6 +201,19 @@ static int aesd_setup_cdev(struct aesd_dev *dev)
     }
     return err;
 }
+void aesd_cleanup_module(void)
+{
+    dev_t devno = MKDEV(aesd_major, aesd_minor);
+
+    cdev_del(&aesd_device->cdev);
+
+    /**
+     * cleanup AESD specific poritions here as necessary
+     */
+    kfree(aesd_device);
+    unregister_chrdev_region(devno, 1);
+    printk(KERN_INFO "Unloaded module aesdchar");
+}
 
 int aesd_init_module(void)
 {
@@ -181,40 +227,33 @@ int aesd_init_module(void)
         printk(KERN_WARNING "Can't get major %d\n", aesd_major);
         return result;
     }
+    /* allocate the device */
     aesd_device = kmalloc(sizeof(struct aesd_dev), GFP_KERNEL);
-    if (!aesd_device) {
-		result = -ENOMEM;
-		goto fail;  /* Make this more graceful */
-	}
+    if (!aesd_device)
+    {
+        result = -ENOMEM;
+        goto fail;
+    }
     memset(aesd_device, 0, sizeof(struct aesd_dev));
 
     /**
-     * initialize the AESD specific portion of the device
+     * Initialize the AESD specific portion of the device
      */
     mutex_init(&aesd_device->lock);
+    // aesd_circular_buffer_init(&aesd_device.buffer);
+
     result = aesd_setup_cdev(aesd_device);
 
     if (result)
     {
         goto fail;
     }
+    printk(KERN_INFO "Loaded moudle aesdchar\n");
+    return result;
 
-    fail: 
-        unregister_chrdev_region(dev, 1);
-        return result;
-}
-
-void aesd_cleanup_module(void)
-{
-    dev_t devno = MKDEV(aesd_major, aesd_minor);
-
-    cdev_del(&aesd_device->cdev);
-
-    /**
-     * cleanup AESD specific poritions here as necessary
-     */
-    kfree(aesd_device);
-    unregister_chrdev_region(devno, 1);
+fail:
+    aesd_cleanup_module();
+    return result;
 }
 
 module_init(aesd_init_module);
