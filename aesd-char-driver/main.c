@@ -33,7 +33,7 @@ size_t buf_page_size[50];
 char buf_page_no;
 char append_page;
 char *read_buf;
-size_t read_size;
+size_t read_off;
 
 int aesd_open(struct inode *inode, struct file *filp)
 {
@@ -88,7 +88,7 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
         return -ERESTARTSYS;
     }
 
-    return_buf = aesd_circular_buffer_find_entry_offset_for_fpos(&buffer, (size_t)*f_pos, &read_size);
+    return_buf = aesd_circular_buffer_find_entry_offset_for_fpos(&buffer, (size_t)*f_pos, &read_off);
     if (return_buf != NULL)
     {
         if (copy_to_user(buf, return_buf->buffptr+(char)*f_pos, count))
