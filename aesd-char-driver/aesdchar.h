@@ -23,6 +23,7 @@
 #  define PDEBUG(fmt, args...) /* not debugging: nothing */
 #endif
 
+#  ifdef __KERNEL__
 struct aesd_dev
 {
     /**
@@ -31,6 +32,6 @@ struct aesd_dev
     struct mutex lock;    /* mutual exclusion semaphore     */
     struct cdev cdev;     /* Char device structure      */
 };
-
+#endif
 
 #endif /* AESD_CHAR_DRIVER_AESDCHAR_H_ */
