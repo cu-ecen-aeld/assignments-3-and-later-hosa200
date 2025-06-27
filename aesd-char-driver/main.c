@@ -29,6 +29,7 @@ MODULE_LICENSE("Dual BSD/GPL");
 struct aesd_dev *aesd_device;
 struct aesd_circular_buffer buffer;
 char *local_buf[50];
+size_t buf_page_size[50];
 char buf_page_no;
 char append_page;
 char *read_buf;
