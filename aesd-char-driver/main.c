@@ -99,7 +99,7 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
         }
         else
             PDEBUG("Data is available \n");
-        retval = tmp_count;
+        retval = count;
     }
     else
     {
