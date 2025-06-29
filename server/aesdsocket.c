@@ -321,6 +321,8 @@ void *socket_main(void *node_addr)
                 /* error */
                 printf("Error 10 %s\n", strerror(errno));
                 syslog(LOG_INFO, "Error reading file: %s\n", FILE_NAME);
+                if (close(file_fd) == -1)
+                    syslog(LOG_INFO, "Error closing the file: %s\n", FILE_NAME);
                 /* release mutex */
                 pthread_mutex_unlock(&file_mutex);
                 ((node_t *)node_addr)->thrd_comp = true;
@@ -338,8 +340,8 @@ void *socket_main(void *node_addr)
                 /* error */
                 printf("Error 11 %s\n", strerror(errno));
                 syslog(LOG_INFO, "Error sending back to socket\n");
-                if (close(file_fd) == -1)
-                    syslog(LOG_INFO, "Error closing the file: %s\n", FILE_NAME);
+                // if (close(file_fd) == -1)
+                //     syslog(LOG_INFO, "Error closing the file: %s\n", FILE_NAME);
                 ((node_t *)node_addr)->thrd_comp = true;
                 return (void *)me;
             }

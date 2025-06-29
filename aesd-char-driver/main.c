@@ -85,12 +85,12 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
         if (count < aesd_device->read_buf->size)
         {
             tmp_count = count;
-            PDEBUG("data numbers are %d as input",tmp_count);
+            PDEBUG("data numbers are %d as input", tmp_count);
         }
         else
         {
             tmp_count = aesd_device->read_buf->size;
-            PDEBUG("data numbers are %d as buf",tmp_count);
+            PDEBUG("data numbers are %d as buf", tmp_count);
         }
         if (copy_to_user(buf, aesd_device->read_buf->buffptr, tmp_count))
         {
@@ -154,6 +154,12 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     if (aesd_device->local_buf.buffptr[aesd_device->local_buf.size - 1] == '\n') /* write only if the data ends with a terminator */
     {
         PDEBUG("data with terminator found");
+
+        if (aesd_device->buffer.full)
+        {
+            kfree(aesd_device->buffer.in_offs);
+        }
+
         if (aesd_device->append_page) /* if a terminator found with many pages */
         {
             PDEBUG("data is appended, multi page");
@@ -207,12 +213,17 @@ static int aesd_setup_cdev(struct aesd_dev *dev)
 void aesd_cleanup_module(void)
 {
     dev_t devno = MKDEV(aesd_major, aesd_minor);
+    int i;
 
     cdev_del(&aesd_device->cdev);
 
     /**
      * cleanup AESD specific poritions here as necessary
      */
+    AESD_CIRCULAR_BUFFER_FOREACH(aesd_device->read_buf, &aesd_device->buffer, i)
+    {
+        kfree(aesd_device->read_buf->buffptr);
+    }
     kfree(aesd_device);
     unregister_chrdev_region(devno, 1);
     printk(KERN_INFO "Unloaded module aesdchar");
