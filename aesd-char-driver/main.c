@@ -45,7 +45,7 @@ int aesd_open(struct inode *inode, struct file *filp)
         if (mutex_lock_interruptible(&dev->lock))
             return -ERESTARTSYS;
         /* TODO: trim ? */
-
+        aesd_device->read_buf = NULL;
         mutex_unlock(&dev->lock);
     }
 
@@ -77,35 +77,43 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
         return -ERESTARTSYS;
     }
 
-    aesd_device->read_buf = aesd_circular_buffer_find_entry_offset_for_fpos(&aesd_device->buffer,
-                                                                            0,
-                                                                            &aesd_device->read_off);
-    if (aesd_device->read_buf)
+    if (aesd_device->read_buf == NULL)
     {
-        if (count < aesd_device->read_buf->size)
+        aesd_device->read_buf = aesd_circular_buffer_find_entry_offset_for_fpos(&aesd_device->buffer,
+                                                                                0,
+                                                                                &aesd_device->read_off);
+        if (aesd_device->read_buf)
         {
-            tmp_count = count;
-            PDEBUG("data numbers are %d as input", tmp_count);
+            if (count < aesd_device->read_buf->size)
+            {
+                tmp_count = count;
+                PDEBUG("data numbers are %d as input", tmp_count);
+            }
+            else
+            {
+                tmp_count = aesd_device->read_buf->size;
+                PDEBUG("data numbers are %d as buf", tmp_count);
+            }
+            if (copy_to_user(buf, aesd_device->read_buf->buffptr, tmp_count))
+            {
+                PDEBUG("Error writing to userspace");
+                retval = -EFAULT;
+            }
+            else
+                PDEBUG("Data is available \n");
+            retval = tmp_count;
         }
         else
         {
-            tmp_count = aesd_device->read_buf->size;
-            PDEBUG("data numbers are %d as buf", tmp_count);
-        }
-        if (copy_to_user(buf, aesd_device->read_buf->buffptr, tmp_count))
-        {
-            PDEBUG("Error writing to userspace");
+            PDEBUG("Reading is failing, returning ");
             retval = -EFAULT;
         }
-        else
-            PDEBUG("Data is available \n");
-        retval = 0; /* it means no more data */
     }
     else
     {
-        PDEBUG("Reading is failing, returning ");
-        retval = -EFAULT;
+        retval = 0; /* it means no more data */
     }
+
     goto out;
 
 out:
