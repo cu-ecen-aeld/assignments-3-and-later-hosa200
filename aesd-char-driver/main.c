@@ -166,7 +166,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
 
         if (aesd_device->buffer.full)
         {
-            kfree(aesd_device->buffer.in_offs);
+            kfree(aesd_device->buffer.entry[aesd_device->buffer.in_offs]);
         }
 
         if (aesd_device->append_page) /* if a terminator found with many pages */
