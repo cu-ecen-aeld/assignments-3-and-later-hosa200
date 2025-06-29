@@ -99,11 +99,12 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
         }
         else
             PDEBUG("Data is available \n");
-        retval = count;
+        retval = 0; /* it means no more data */
     }
     else
     {
         PDEBUG("Reading is failing, returning ");
+        retval = -EFAULT;
     }
     goto out;
 
