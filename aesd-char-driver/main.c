@@ -18,7 +18,6 @@
 #include <linux/cdev.h>
 #include <linux/fs.h> // file_operations
 #include "aesdchar.h"
-#include "aesd-circular-buffer.h"
 
 int aesd_major = 0; // use dynamic major
 int aesd_minor = 0;
@@ -27,13 +26,6 @@ MODULE_AUTHOR("Hossam Batekh");
 MODULE_LICENSE("Dual BSD/GPL");
 
 struct aesd_dev *aesd_device;
-struct aesd_circular_buffer buffer;
-char *local_buf[50];
-size_t buf_page_size[50];
-char buf_page_no;
-char append_page;
-char *read_buf;
-size_t read_off;
 
 int aesd_open(struct inode *inode, struct file *filp)
 {
@@ -53,10 +45,7 @@ int aesd_open(struct inode *inode, struct file *filp)
         if (mutex_lock_interruptible(&dev->lock))
             return -ERESTARTSYS;
         /* TODO: trim ? */
-        aesd_circular_buffer_init(&buffer); /* Init our buffer */
-        buf_page_no = 0;
-        append_page = 0;
-        memset(local_buf, 0, 50 * sizeof(char));
+
         mutex_unlock(&dev->lock);
     }
 
@@ -76,9 +65,9 @@ int aesd_release(struct inode *inode, struct file *filp)
 ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
                   loff_t *f_pos)
 {
+    size_t tmp_count;
     ssize_t retval = 0;
     struct aesd_dev *dev = filp->private_data;
-    struct aesd_buffer_entry *return_buf;
 
     PDEBUG("read %zu bytes with offset %lld", count, *f_pos);
 
@@ -88,23 +77,36 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
         return -ERESTARTSYS;
     }
 
-    return_buf = aesd_circular_buffer_find_entry_offset_for_fpos(&buffer, (size_t)*f_pos, &read_off);
-    if (return_buf != NULL)
+    aesd_device->read_buf = aesd_circular_buffer_find_entry_offset_for_fpos(&aesd_device->buffer,
+                                                                            0,
+                                                                            &aesd_device->read_off);
+    if (aesd_device->read_buf)
     {
-        if (copy_to_user(buf, return_buf->buffptr+(char)*f_pos, count))
+        if (count < aesd_device->read_buf->size)
         {
-            PDEBUG("Error writing %p to userspace", &return_buf->buffptr[read_off]);
-            retval = -EFAULT;
-            goto out;
+            tmp_count = count;
+            PDEBUG("data numbers are %d as input",tmp_count);
         }
         else
-            PDEBUG("Data is available %s\n",buf);
+        {
+            tmp_count = aesd_device->read_buf->size;
+            PDEBUG("data numbers are %d as buf",tmp_count);
+        }
+        if (copy_to_user(buf, aesd_device->read_buf->buffptr, tmp_count))
+        {
+            PDEBUG("Error writing to userspace");
+            retval = -EFAULT;
+        }
+        else
+            PDEBUG("Data is available \n");
+        retval = tmp_count;
     }
     else
     {
         PDEBUG("Reading is failing, returning ");
-        goto out;
     }
+    goto out;
+
 out:
     mutex_unlock(&dev->lock);
     return retval;
@@ -116,7 +118,6 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     ssize_t retval = -ENOMEM;
     int cntr = 0;
     struct aesd_dev *dev = filp->private_data;
-    struct aesd_buffer_entry add_entry;
 
     PDEBUG("write %zu bytes with offset %lld", count, *f_pos);
 
@@ -125,52 +126,59 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
         PDEBUG("Error %d", ERESTARTSYS);
         return -ERESTARTSYS;
     }
-
-    local_buf[buf_page_no] = kmalloc(sizeof(char) * count, GFP_KERNEL);          /* allocate memory */
-    if (copy_from_user(local_buf[buf_page_no], buf, buf_page_size[buf_page_no])) /* copy to kernal space memory */
+    if (aesd_device->buf_page_no > 0)
+    {
+        aesd_device->local_buf.size += count;                                                                        /* save count of bytes */
+        aesd_device->local_buf.buffptr = krealloc(&aesd_device->local_buf, aesd_device->local_buf.size, GFP_KERNEL); /* allocate memory */
+    }
+    else
+    {
+        aesd_device->local_buf.size = count;                                               /* save count of bytes */
+        aesd_device->local_buf.buffptr = kmalloc(aesd_device->local_buf.size, GFP_KERNEL); /* allocate memory */
+    }
+    if (aesd_device->local_buf.buffptr == NULL)
+    {
+        PDEBUG("Error allocating memory in kernal space");
+        retval = -EFAULT;
+        goto out;
+    }
+    if (copy_from_user(aesd_device->local_buf.buffptr,
+                       buf,
+                       aesd_device->local_buf.size)) /* copy to kernal space memory */
     {
         PDEBUG("Error copying from userspace");
         retval = -EFAULT;
         goto out;
     }
-    if (local_buf[buf_page_no][buf_page_size[buf_page_no] - 1] == '\n') /* write only if the data ends with a terminator */
+    retval = count;                                                              /* update return value */
+    if (aesd_device->local_buf.buffptr[aesd_device->local_buf.size - 1] == '\n') /* write only if the data ends with a terminator */
     {
         PDEBUG("data with terminator found");
-        if (append_page) /* if a terminator found with many pages */
+        if (aesd_device->append_page) /* if a terminator found with many pages */
         {
-            PDEBUG("data is appended");
-            append_page = 0;
-            for (cntr = 0; cntr <= buf_page_no; cntr++) /* loop on all pages, write them and free local buffer */
-            {
-                add_entry.buffptr = local_buf[cntr];
-                add_entry.size = buf_page_size[cntr];
-                PDEBUG("write single page data %c size of %d\n", *add_entry.buffptr, add_entry.size);
-                aesd_circular_buffer_add_entry(&buffer, &add_entry);
-                // kfree(local_buf[buf_page_no]);
-                PDEBUG("write single page data done %c\n", *buffer.entry[0].buffptr);
-            }
-            buf_page_no = 0; /* writing is done, reset page number */
+            PDEBUG("data is appended, multi page");
+            PDEBUG("write of size %d of data is done\n", aesd_device->local_buf.size);
+            aesd_circular_buffer_add_entry(&aesd_device->buffer, &aesd_device->local_buf);
+            aesd_device->buf_page_no = 0; /* writing is done, reset page number */
+            aesd_device->append_page = 0;
         }
-        else
+        else /* single pages */
         {
-            add_entry.buffptr = local_buf[buf_page_no];
-            add_entry.size = buf_page_size[buf_page_no];
-            PDEBUG("write single page data %c size of %d\n", *add_entry.buffptr, add_entry.size);
-            aesd_circular_buffer_add_entry(&buffer, &add_entry);
-            // kfree(local_buf[buf_page_no]);
-            PDEBUG("write single page data done %c\n", *buffer.entry[0].buffptr);
+            PDEBUG("single page");
+            PDEBUG("write of size %d of data is done\n", aesd_device->local_buf.size);
+            aesd_circular_buffer_add_entry(&aesd_device->buffer, &aesd_device->local_buf);
         }
     }
     else
     {
-        buf_page_no++;
-        PDEBUG("data without terminator found,now page %d\n", buf_page_no);
-        append_page = 1;
+        aesd_device->buf_page_no++;
+        PDEBUG("data without terminator found,now page %d\n", aesd_device->buf_page_no);
+        aesd_device->append_page = 1;
     }
     goto out;
 
 out:
-    PDEBUG("page no %d\n", buf_page_no);
+    PDEBUG("page no %d\n", aesd_device->buf_page_no);
     mutex_unlock(&dev->lock);
     return retval;
 }
@@ -235,7 +243,10 @@ int aesd_init_module(void)
      * Initialize the AESD specific portion of the device
      */
     mutex_init(&aesd_device->lock);
-    // aesd_circular_buffer_init(&aesd_device.buffer);
+    aesd_circular_buffer_init(&aesd_device->buffer); /* Init our buffer */
+    aesd_device->buf_page_no = 0;
+    aesd_device->append_page = 0;
+    // memset(local_buf, 0, sizeof(local_buf));
 
     result = aesd_setup_cdev(aesd_device);
 

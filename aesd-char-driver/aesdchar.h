@@ -8,29 +8,53 @@
 #ifndef AESD_CHAR_DRIVER_AESDCHAR_H_
 #define AESD_CHAR_DRIVER_AESDCHAR_H_
 
-#define AESD_DEBUG 1  //Remove comment on this line to enable debug
+#include "aesd-circular-buffer.h"
 
-#undef PDEBUG             /* undef it, just in case */
+
+#define AESD_DEBUG 1 // Remove comment on this line to enable debug
+
+#undef PDEBUG /* undef it, just in case */
 #ifdef AESD_DEBUG
-#  ifdef __KERNEL__
-     /* This one if debugging is on, and kernel space */
-#    define PDEBUG(fmt, args...) printk( KERN_DEBUG "aesdchar: " fmt, ## args)
-#  else
-     /* This one for user space */
-#    define PDEBUG(fmt, args...) fprintf(stderr, fmt, ## args)
-#  endif
+#ifdef __KERNEL__
+/* This one if debugging is on, and kernel space */
+#define PDEBUG(fmt, args...) printk(KERN_DEBUG "aesdchar: " fmt, ##args)
 #else
-#  define PDEBUG(fmt, args...) /* not debugging: nothing */
+/* This one for user space */
+#define PDEBUG(fmt, args...) fprintf(stderr, fmt, ##args)
+#endif
+#else
+#define PDEBUG(fmt, args...) /* not debugging: nothing */
 #endif
 
-#  ifdef __KERNEL__
+#ifdef __KERNEL__
 struct aesd_dev
 {
-    /**
-     * TODO: Add structure(s) and locks needed to complete assignment requirements
-     */
-    struct mutex lock;    /* mutual exclusion semaphore     */
-    struct cdev cdev;     /* Char device structure      */
+     /**
+      * TODO: Add structure(s) and locks needed to complete assignment requirements
+      */
+     struct mutex lock; /* mutual exclusion semaphore     */
+     struct cdev cdev;  /* Char device structure      */
+     struct aesd_circular_buffer buffer;
+     struct aesd_buffer_entry local_buf;
+     uint8_t buf_page_no;
+     char append_page;
+     struct aesd_buffer_entry *read_buf;
+     size_t read_off;
+};
+#else
+struct aesd_dev
+{
+     /**
+      * TODO: Add structure(s) and locks needed to complete assignment requirements
+      */
+     // struct mutex lock; /* mutual exclusion semaphore     */
+     // struct cdev cdev;  /* Char device structure      */
+     struct aesd_circular_buffer buffer;
+     struct aesd_buffer_entry local_buf;
+     uint8_t buf_page_no;
+     char append_page;
+     struct aesd_buffer_entry *read_buf;
+     size_t read_off;
 };
 #endif
 
