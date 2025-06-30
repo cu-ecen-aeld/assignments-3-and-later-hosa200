@@ -315,11 +315,15 @@ void *socket_main(void *node_addr)
             }
             #ifdef USE_AESD_CHAR_DEVICE
             send_len = 4096;
+            while(read(file_fd, (void *)send_buf, send_len) > 0)
+            {
+                status = 0 ;
+            }
             #else
             send_len = lseek(file_fd, 0, SEEK_END); // seek to end of file
             status = lseek(file_fd, 0, SEEK_SET);   // seek back to beginning of file
-            #endif
             status = read(file_fd, (void *)send_buf, send_len);
+            #endif
             if (status == -1)
             {
                 /* error */
