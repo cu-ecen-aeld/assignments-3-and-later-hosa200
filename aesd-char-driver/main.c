@@ -138,7 +138,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     {
         ptr_index = aesd_device->local_buf.size;
         aesd_device->local_buf.size += count;                                                                        /* save count of bytes */
-        aesd_device->local_buf.buffptr = krealloc(&aesd_device->local_buf, aesd_device->local_buf.size, GFP_KERNEL); /* allocate memory */
+        aesd_device->local_buf.buffptr = krealloc(aesd_device->local_buf.buffptr, aesd_device->local_buf.size, GFP_KERNEL); /* allocate memory */
     }
     else
     {
@@ -166,6 +166,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
 
         if (aesd_device->buffer.full)
         {
+            PDEBUG("buffer is full, freeing memory");
             kfree(aesd_device->buffer.entry[aesd_device->buffer.in_offs].buffptr);
         }
 
