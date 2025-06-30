@@ -124,6 +124,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
 {
     ssize_t retval = -ENOMEM;
     int cntr = 0;
+    char ptr_index = 0;
     struct aesd_dev *dev = filp->private_data;
 
     PDEBUG("write %zu bytes with offset %lld", count, *f_pos);
@@ -135,6 +136,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     }
     if (aesd_device->buf_page_no > 0)
     {
+        ptr_index = aesd_device->local_buf.size;
         aesd_device->local_buf.size += count;                                                                        /* save count of bytes */
         aesd_device->local_buf.buffptr = krealloc(&aesd_device->local_buf, aesd_device->local_buf.size, GFP_KERNEL); /* allocate memory */
     }
@@ -149,9 +151,9 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
         retval = -EFAULT;
         goto out;
     }
-    if (copy_from_user(aesd_device->local_buf.buffptr,
+    if (copy_from_user(aesd_device->local_buf.buffptr + ptr_index,
                        buf,
-                       aesd_device->local_buf.size)) /* copy to kernal space memory */
+                       count)) /* copy to kernal space memory */
     {
         PDEBUG("Error copying from userspace");
         retval = -EFAULT;
