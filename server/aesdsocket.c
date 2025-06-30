@@ -313,8 +313,12 @@ void *socket_main(void *node_addr)
                 ((node_t *)node_addr)->thrd_comp = true;
                 return (void *)me;
             }
+            #ifdef USE_AESD_CHAR_DEVICE
+            send_len = 4096;
+            #else
             send_len = lseek(file_fd, 0, SEEK_END); // seek to end of file
             status = lseek(file_fd, 0, SEEK_SET);   // seek back to beginning of file
+            #endif
             status = read(file_fd, (void *)send_buf, send_len);
             if (status == -1)
             {
