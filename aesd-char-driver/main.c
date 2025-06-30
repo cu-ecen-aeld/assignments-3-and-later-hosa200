@@ -108,8 +108,8 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
     }
     else
     {
-        PDEBUG("Reading is failing, returning ");
-        retval = -EFAULT;
+        PDEBUG("Reading is done, returning ");
+        retval = 0;
     }
 
     goto out;
