@@ -72,6 +72,7 @@ long int aesd_write(/*struct file *filp,*/ const char *buf, size_t count /*,*/
 {
     long int retval = -1;
     int cntr = 0;
+    int ptr_index = 0;
     // struct aesd_dev *dev = filp->private_data;
     PDEBUG("write %zu bytes with offset 0\n", count);
     // if (mutex_lock_interruptible(&dev->lock))
@@ -82,8 +83,9 @@ long int aesd_write(/*struct file *filp,*/ const char *buf, size_t count /*,*/
 
     if (aesd_device->buf_page_no > 0)
     {
+        ptr_index = aesd_device->local_buf.size;
         aesd_device->local_buf.size += count;                                                           /* save count of bytes */
-        aesd_device->local_buf.buffptr = realloc(&aesd_device->local_buf, aesd_device->local_buf.size); /* allocate memory */
+        aesd_device->local_buf.buffptr = realloc(aesd_device->local_buf.buffptr, aesd_device->local_buf.size); /* allocate memory */
     }
     else
     {
@@ -97,9 +99,9 @@ long int aesd_write(/*struct file *filp,*/ const char *buf, size_t count /*,*/
         goto out;
     }
     /* copy to kernal space memory */
-    if (!memcpy(aesd_device->local_buf.buffptr,
+    if (!memcpy(aesd_device->local_buf.buffptr + ptr_index,
                 buf,
-                aesd_device->local_buf.size)) /* copy to kernal space memory */
+                count)) /* copy to kernal space memory */
     {
         PDEBUG("Error copying from userspace\n");
         retval = -2;
@@ -109,6 +111,11 @@ long int aesd_write(/*struct file *filp,*/ const char *buf, size_t count /*,*/
     if (aesd_device->local_buf.buffptr[aesd_device->local_buf.size - 1] == '\n') /* write only if the data ends with a terminator */
     {
         PDEBUG("data with terminator found\n");
+        if (aesd_device->buffer.full)
+        {
+            PDEBUG("buffer is full, freeing memory");
+            free(aesd_device->buffer.entry[aesd_device->buffer.in_offs].buffptr);
+        }
         if (aesd_device->append_page) /* if a terminator found with many pages */
         {
             PDEBUG("data is appended, multi page");
@@ -193,21 +200,21 @@ void main()
     aesd_device = malloc(sizeof(struct aesd_dev));
     memset(aesd_device, 0, sizeof(struct aesd_dev));
     aesd_circular_buffer_init(&aesd_device->buffer);
-    // write_circular_buffer_packet(&aesd_device->buffer, "write1\n");
-    // write_circular_buffer_packet(&aesd_device->buffer, "write2\n");
-    // write_circular_buffer_packet(&aesd_device->buffer, "write3\n");
-    // write_circular_buffer_packet(&aesd_device->buffer, "write4\n");
-    // write_circular_buffer_packet(&aesd_device->buffer, "write5\n");
-    // write_circular_buffer_packet(&aesd_device->buffer, "write6\n");
-    // write_circular_buffer_packet(&aesd_device->buffer, "write7\n");
-    // write_circular_buffer_packet(&aesd_device->buffer, "write8\n");
-    // write_circular_buffer_packet(&aesd_device->buffer, "write9\n");
-    // write_circular_buffer_packet(&aesd_device->buffer, "write10\n");
+    write_circular_buffer_packet(&aesd_device->buffer, "write1");
+    write_circular_buffer_packet(&aesd_device->buffer, "write2");
+    write_circular_buffer_packet(&aesd_device->buffer, "write3");
+    write_circular_buffer_packet(&aesd_device->buffer, "write4\n");
+    write_circular_buffer_packet(&aesd_device->buffer, "write5\n");
+    write_circular_buffer_packet(&aesd_device->buffer, "write6\n");
+    write_circular_buffer_packet(&aesd_device->buffer, "write7\n");
+    write_circular_buffer_packet(&aesd_device->buffer, "write8\n");
     write_circular_buffer_packet(&aesd_device->buffer, "write9\n");
     write_circular_buffer_packet(&aesd_device->buffer, "write10\n");
+    // write_circular_buffer_packet(&aesd_device->buffer, "write9\n");
+    // write_circular_buffer_packet(&aesd_device->buffer, "write10\n");
 
-    aesd_read(tmp_read_buf, 14, 0);
-    printf("res: %s\n", tmp_read_buf);
+    // aesd_read(tmp_read_buf, 14, 0);
+    // printf("res: %s\n", tmp_read_buf);
     // verify_find_entry(&aesd_device->buffer, 0, "write1\n");
     // verify_find_entry(&aesd_device->buffer, 7, "write2\n");
     // verify_find_entry(&aesd_device->buffer, 14, "write3\n");
