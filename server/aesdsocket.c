@@ -318,7 +318,7 @@ void *socket_main(void *node_addr)
             while (1)
             {
                 syslog(LOG_INFO, "reading the file with %d length\n",send_len);
-                status = read(file_fd, (void *)send_buf, 4096);
+                status = read(file_fd, (void *)(send_buf + send_len), 4096);
                 if (status > 0)
                 {
                     send_len += status;
