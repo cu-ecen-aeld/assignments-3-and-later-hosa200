@@ -323,7 +323,7 @@ void *socket_main(void *node_addr)
                     send_len += status;
                 }
                 else
-                break;
+                    break;
             }
 #else
             send_len = lseek(file_fd, 0, SEEK_END); // seek to end of file
