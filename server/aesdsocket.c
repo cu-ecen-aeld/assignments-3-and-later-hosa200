@@ -351,6 +351,8 @@ void *socket_main(void *node_addr)
             /* write to client */
             syslog(LOG_INFO, "Sending to the client\n");
             status = send(new_sockfd, (void *)send_buf, send_len, 0); /*May be is not sending TODO:*/
+            printf("send log: %d\n",status);
+            syslog(LOG_INFO, "send log: %d",status);
             if (status == -1)
             {
                 /* error */
