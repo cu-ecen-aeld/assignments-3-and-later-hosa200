@@ -24,9 +24,9 @@
 #define LEN 100
 
 #if USE_AESD_CHAR_DEVICE
-    #define FILE_NAME "/dev/aesdchar"
+#define FILE_NAME "/dev/aesdchar"
 #else
-    #define FILE_NAME "/var/tmp/aesdsocketdata"
+#define FILE_NAME "/var/tmp/aesdsocketdata"
 #endif
 
 #define MAX_BUFFER_LEN 50000
@@ -313,17 +313,23 @@ void *socket_main(void *node_addr)
                 ((node_t *)node_addr)->thrd_comp = true;
                 return (void *)me;
             }
-            #ifdef USE_AESD_CHAR_DEVICE
-            send_len = 4096;
-            while(read(file_fd, (void *)send_buf, send_len) > 0)
+#ifdef USE_AESD_CHAR_DEVICE
+            send_len = 0;
+            while (1)
             {
-                status = 0 ;
+                status = read(file_fd, (void *)send_buf, 4096);
+                if (status > 0)
+                {
+                    send_len += status;
+                }
+                else
+                break;
             }
-            #else
+#else
             send_len = lseek(file_fd, 0, SEEK_END); // seek to end of file
             status = lseek(file_fd, 0, SEEK_SET);   // seek back to beginning of file
             status = read(file_fd, (void *)send_buf, send_len);
-            #endif
+#endif
             if (status == -1)
             {
                 /* error */
