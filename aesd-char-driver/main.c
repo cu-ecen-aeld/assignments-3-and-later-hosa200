@@ -119,6 +119,29 @@ out:
     return retval;
 }
 
+loff_t aesd_llseek(struct file *filp, loff_t off, int whence){
+	loff_t sum = 0;
+	size_t i;	
+	struct aesd_dev *dev = filp->private_data;
+
+	switch (whence) {
+		case SEEK_END:
+			if (mutex_lock_interruptible(&dev->lock)) {
+				PDEBUG("mutex lock failure during llseek");
+				return -ERESTARTSYS;
+			}
+			for (i = 0; i < AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED; i++) {
+				sum += dev->buffer.entry[i].size;
+			}
+			mutex_unlock(&dev->lock);
+			break;
+		default:
+			return -EINVAL;
+	}
+
+	return sum;
+}
+
 ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
                    loff_t *f_pos)
 {
@@ -204,6 +227,7 @@ struct file_operations aesd_fops = {
     .write = aesd_write,
     .open = aesd_open,
     .release = aesd_release,
+    .llseek =   aesd_llseek,
 };
 
 static int aesd_setup_cdev(struct aesd_dev *dev)

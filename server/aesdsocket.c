@@ -326,6 +326,10 @@ void *socket_main(void *node_addr)
                 else
                     break;
             }
+            // send_len = lseek(file_fd, 0, SEEK_END); // seek to end of file
+            // // status = lseek(file_fd, 0, SEEK_SET);   // seek back to beginning of file
+            // printf("reading length %d\n",send_len);
+            // status = read(file_fd, (void *)send_buf, send_len);
 #else
             send_len = lseek(file_fd, 0, SEEK_END); // seek to end of file
             status = lseek(file_fd, 0, SEEK_SET);   // seek back to beginning of file
