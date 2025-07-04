@@ -89,6 +89,7 @@ static void signal_handler(int signo)
         closelog();
         exit(1);
     }
+    syslog(LOG_INFO, "Exiting aesdsocket due to receving a signal\n");
     exit(0);
 }
 
@@ -171,6 +172,7 @@ static void write_clock_time(union sigval sv)
     int size = strftime(timestamp, sizeof(timestamp),
                         "timestamp:%a, %d %b %Y %H:%M:%S %z %n", tm_info);
 
+    syslog(LOG_INFO, "Try acquiring file mutex");
     pthread_mutex_lock(&file_mutex);
     file_fd = open(FILE_NAME, O_WRONLY | O_CREAT | O_APPEND, 0644);
     if (file_fd == -1)
@@ -180,6 +182,7 @@ static void write_clock_time(union sigval sv)
         syslog(LOG_INFO, "Error opening or creating the file\n");
         /* release mutex */
         pthread_mutex_unlock(&file_mutex);
+syslog(LOG_INFO, "file mutex unlocked");
     }
     /* write to the file */
     if (write(file_fd, (void *)timestamp, size) == -1)
@@ -191,6 +194,7 @@ static void write_clock_time(union sigval sv)
             syslog(LOG_INFO, "Error closing the file: %s\n", FILE_NAME);
         /* release mutex */
         pthread_mutex_unlock(&file_mutex);
+syslog(LOG_INFO, "file mutex unlocked");
     }
     else
     {
@@ -200,6 +204,7 @@ static void write_clock_time(union sigval sv)
     }
     /* release mutex */
     pthread_mutex_unlock(&file_mutex);
+syslog(LOG_INFO, "file mutex unlocked");
 }
 
 void startTimer(int firstRun, int interval) // both arguments in seconds
@@ -281,6 +286,7 @@ void *socket_main(void *node_addr)
                 // }
                 /* open file to recieve data */
                 /* take mutex */
+                syslog(LOG_INFO, "Try acquiring file mutex");
                 pthread_mutex_lock(&file_mutex);
                 file_fd = open(FILE_NAME, O_WRONLY | O_CREAT | O_APPEND, 0644);
                 if (file_fd == -1)
@@ -290,6 +296,7 @@ void *socket_main(void *node_addr)
                     syslog(LOG_INFO, "Error opening or creating the file\n");
                     /* release mutex */
                     pthread_mutex_unlock(&file_mutex);
+syslog(LOG_INFO, "file mutex unlocked");
                     ((node_t *)node_addr)->thrd_comp = true;
                     return (void *)me;
                 }
@@ -310,6 +317,7 @@ void *socket_main(void *node_addr)
                 printf("byte is %d and offset is %d\n", seekto.write_cmd, seekto.write_cmd_offset);
                 /* release mutex */
                 pthread_mutex_unlock(&file_mutex);
+syslog(LOG_INFO, "file mutex unlocked");
                 // syslog(LOG_INFO, "byte is %d and offset is %d, closing\n", seekto.write_cmd, seekto.write_cmd_offset);
                 // if (close(file_fd) == -1)
                 //         syslog(LOG_INFO, "Error closing the file: %s\n", FILE_NAME);
@@ -318,6 +326,7 @@ void *socket_main(void *node_addr)
             {
                 /* open file to recieve data */
                 /* take mutex */
+                syslog(LOG_INFO, "Try acquiring file mutex");
                 pthread_mutex_lock(&file_mutex);
 
                 file_fd = open(FILE_NAME, O_WRONLY | O_CREAT | O_APPEND, 0644);
@@ -328,6 +337,7 @@ void *socket_main(void *node_addr)
                     syslog(LOG_INFO, "Error opening or creating the file\n");
                     /* release mutex */
                     pthread_mutex_unlock(&file_mutex);
+syslog(LOG_INFO, "file mutex unlocked");
                     ((node_t *)node_addr)->thrd_comp = true;
                     return (void *)me;
                 }
@@ -342,6 +352,7 @@ void *socket_main(void *node_addr)
                         syslog(LOG_INFO, "Error closing the file: %s\n", FILE_NAME);
                     /* release mutex */
                     pthread_mutex_unlock(&file_mutex);
+syslog(LOG_INFO, "file mutex unlocked");
                     ((node_t *)node_addr)->thrd_comp = true;
                     return (void *)me;
                 }
@@ -353,12 +364,14 @@ void *socket_main(void *node_addr)
                 }
                 /* release mutex */
                 pthread_mutex_unlock(&file_mutex);
+syslog(LOG_INFO, "file mutex unlocked");
 
                 /* clear buffer */
                 memset(recv_buf, '\0', sizeof(recv_buf));
             }
             /* open file to read data */
             /* take mutex */
+            syslog(LOG_INFO, "Try acquiring file mutex");
             pthread_mutex_lock(&file_mutex);
 
             file_fd = open(FILE_NAME, O_RDONLY, 0644);
@@ -369,6 +382,7 @@ void *socket_main(void *node_addr)
                 syslog(LOG_INFO, "Error opening or creating the file\n");
                 /* release mutex */
                 pthread_mutex_unlock(&file_mutex);
+syslog(LOG_INFO, "file mutex unlocked");
                 ((node_t *)node_addr)->thrd_comp = true;
                 return (void *)me;
             }
@@ -429,6 +443,7 @@ void *socket_main(void *node_addr)
                     syslog(LOG_INFO, "Error closing the file: %s\n", FILE_NAME);
                 /* release mutex */
                 pthread_mutex_unlock(&file_mutex);
+syslog(LOG_INFO, "file mutex unlocked");
                 ((node_t *)node_addr)->thrd_comp = true;
                 return (void *)me;
             }
@@ -436,6 +451,7 @@ void *socket_main(void *node_addr)
                 syslog(LOG_INFO, "Error closing the file: %s\n", FILE_NAME);
             /* release mutex */
             pthread_mutex_unlock(&file_mutex);
+syslog(LOG_INFO, "file mutex unlocked");
 
             /* write to client */
             syslog(LOG_INFO, "Sending to the client\n");
@@ -520,6 +536,7 @@ int main(int argc, char *argv[])
     if (argc > 1 && *argv[1] == 45)
     {
         status = daemon(0, 0);
+        syslog(LOG_INFO, "Run as a deamon");
         if (status != 0)
         {
             /* Error to handle */
@@ -583,6 +600,7 @@ int main(int argc, char *argv[])
         /* joining mechanism */
         while (!TAILQ_EMPTY(&tasks_head))
         {
+            syslog(LOG_INFO, "Joining Tasks");
             tmp_node = TAILQ_FIRST(&tasks_head);
             if (tmp_node->thrd_comp)
             {
@@ -590,6 +608,7 @@ int main(int argc, char *argv[])
                 TAILQ_REMOVE(&tasks_head, tmp_node, nodes_ptr);
                 free(tmp_node);
                 tmp_node = NULL;
+                syslog(LOG_INFO, "Task joined");
             }
         }
     }
