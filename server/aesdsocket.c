@@ -16,6 +16,8 @@
 #include <sys/queue.h>
 #include <time.h>
 #include <stdbool.h>
+#include <sys/ioctl.h>
+#include "aesd_ioctl.h"
 
 /* Defines */
 #define USE_AESD_CHAR_DEVICE 1
@@ -228,9 +230,11 @@ void *socket_main(void *node_addr)
     char send_buf[MAX_BUFFER_LEN] = {'\0'};
     int recv_len = 0;
     int send_len = 0;
+    int curr_off = 0;
     int file_fd;
     int status;
     int new_sockfd;
+    int tmp_read_len;
     pthread_t me;
 
     me = pthread_self();
@@ -257,48 +261,96 @@ void *socket_main(void *node_addr)
     else
     {
         /* recieved data */
+        // AESDCHAR_IOCSEEKTO:X,Y
+
         if (recv_buf[recv_len - 1] == '\n')
         {
-            /* open file to recieve data */
-            /* take mutex */
-            pthread_mutex_lock(&file_mutex);
-            file_fd = open(FILE_NAME, O_WRONLY | O_CREAT | O_APPEND, 0644);
-            if (file_fd == -1)
+            if (recv_buf[0] == 'A')
             {
-                /* error */
-                printf("Error can't open the file:  %s\n", strerror(errno));
-                syslog(LOG_INFO, "Error opening or creating the file\n");
-                /* release mutex */
-                pthread_mutex_unlock(&file_mutex);
-                ((node_t *)node_addr)->thrd_comp = true;
-                return (void *)me;
-            }
-            /* write to the file */
-            status = write(file_fd, (void *)recv_buf, (recv_len * sizeof(char)));
-            if (status == -1)
-            {
-                /* error */
-                printf("Error couldn't write %s\n", strerror(errno));
-                syslog(LOG_INFO, "Error wrting to the file: %s\n", FILE_NAME);
-                if (close(file_fd) == -1)
-                    syslog(LOG_INFO, "Error closing the file: %s\n", FILE_NAME);
-                /* release mutex */
-                pthread_mutex_unlock(&file_mutex);
-                ((node_t *)node_addr)->thrd_comp = true;
-                return (void *)me;
+                struct aesd_seekto seekto;
+                // int fd;
+                // fd = fileno((FILE *)FILE_NAME);
+                // if (fd == -1)
+                // {
+                //     /* error */
+                //     printf("Error can't find the stream file:  %s\n", strerror(errno));
+                //     syslog(LOG_INFO, "Error can't find the stream file\n");
+                //     ((node_t *)node_addr)->thrd_comp = true;
+                //     return (void *)me;
+                // }
+                /* open file to recieve data */
+                /* take mutex */
+                pthread_mutex_lock(&file_mutex);
+                file_fd = open(FILE_NAME, O_WRONLY | O_CREAT | O_APPEND, 0644);
+                if (file_fd == -1)
+                {
+                    /* error */
+                    printf("Error can't open the file:  %s\n", strerror(errno));
+                    syslog(LOG_INFO, "Error opening or creating the file\n");
+                    /* release mutex */
+                    pthread_mutex_unlock(&file_mutex);
+                    ((node_t *)node_addr)->thrd_comp = true;
+                    return (void *)me;
+                }
+                printf("Io control mode\n");
+                syslog(LOG_INFO, "Io control mode\n");
+                seekto.write_cmd = atoi(recv_buf + 19);
+                seekto.write_cmd_offset = atoi(recv_buf + 21);
+                if (ioctl(file_fd, AESDCHAR_IOCSEEKTO, &seekto) != 0)
+                {
+                    /* error */
+                    printf("Error in IO control:  %s\n", strerror(errno));
+                    syslog(LOG_INFO, "Error in IO control\n");
+                    ((node_t *)node_addr)->thrd_comp = true;
+                    return (void *)me;
+                }
+                printf("byte is %d and offset is %d\n", seekto.write_cmd, seekto.write_cmd_offset);
+                // syslog(LOG_INFO, "byte is %d and offset is %d, closing\n", seekto.write_cmd, seekto.write_cmd_offset);
+                // if (close(file_fd) == -1)
+                //         syslog(LOG_INFO, "Error closing the file: %s\n", FILE_NAME);
             }
             else
             {
-                syslog(LOG_INFO, "Successfull wrting to the file: %s\n", FILE_NAME);
-                if (close(file_fd) == -1)
-                    syslog(LOG_INFO, "Error closing the file: %s\n", FILE_NAME);
+                /* open file to recieve data */
+                /* take mutex */
+                pthread_mutex_lock(&file_mutex);
+                file_fd = open(FILE_NAME, O_WRONLY | O_CREAT | O_APPEND, 0644);
+                if (file_fd == -1)
+                {
+                    /* error */
+                    printf("Error can't open the file:  %s\n", strerror(errno));
+                    syslog(LOG_INFO, "Error opening or creating the file\n");
+                    /* release mutex */
+                    pthread_mutex_unlock(&file_mutex);
+                    ((node_t *)node_addr)->thrd_comp = true;
+                    return (void *)me;
+                }
+                /* write to the file */
+                status = write(file_fd, (void *)recv_buf, (recv_len * sizeof(char)));
+                if (status == -1)
+                {
+                    /* error */
+                    printf("Error couldn't write %s\n", strerror(errno));
+                    syslog(LOG_INFO, "Error wrting to the file: %s\n", FILE_NAME);
+                    if (close(file_fd) == -1)
+                        syslog(LOG_INFO, "Error closing the file: %s\n", FILE_NAME);
+                    /* release mutex */
+                    pthread_mutex_unlock(&file_mutex);
+                    ((node_t *)node_addr)->thrd_comp = true;
+                    return (void *)me;
+                }
+                else
+                {
+                    syslog(LOG_INFO, "Successfull wrting to the file: %s\n", FILE_NAME);
+                    if (close(file_fd) == -1)
+                        syslog(LOG_INFO, "Error closing the file: %s\n", FILE_NAME);
+                }
+                /* release mutex */
+                pthread_mutex_unlock(&file_mutex);
+
+                /* clear buffer */
+                memset(recv_buf, '\0', sizeof(recv_buf));
             }
-            /* release mutex */
-            pthread_mutex_unlock(&file_mutex);
-
-            /* clear buffer */
-            memset(recv_buf, '\0', sizeof(recv_buf));
-
             /* open file to read data */
             /* take mutex */
             pthread_mutex_lock(&file_mutex);
@@ -314,22 +366,33 @@ void *socket_main(void *node_addr)
                 return (void *)me;
             }
 #ifdef USE_AESD_CHAR_DEVICE
-            send_len = 0;
+            // send_len = 0;
+            // while (1)
+            // {
+            //     syslog(LOG_INFO, "reading the file with %d length\n", send_len);
+            //     status = read(file_fd, (void *)(send_buf + send_len), 4096);
+            //     if (status > 0)
+            //     {
+            //         send_len += status;
+            //     }
+            //     else
+            //         break;
+            // }
+            curr_off = lseek(file_fd, 0, SEEK_CUR);
+            send_len = lseek(file_fd, 0, SEEK_END);      // seek to end of file
+            status = lseek(file_fd, curr_off, SEEK_SET); // seek back to beginning of file
+            printf("reading length %d\n", send_len);
+            tmp_read_len = send_len;
             while (1)
             {
-                syslog(LOG_INFO, "reading the file with %d length\n",send_len);
-                status = read(file_fd, (void *)(send_buf + send_len), 4096);
-                if (status > 0)
-                {
-                    send_len += status;
-                }
-                else
+                status = read(file_fd, (void *)send_buf + (send_len - tmp_read_len), tmp_read_len);
+                if (status <= 0)
                     break;
+                else
+                {
+                    tmp_read_len -= status;
+                }
             }
-            // send_len = lseek(file_fd, 0, SEEK_END); // seek to end of file
-            // // status = lseek(file_fd, 0, SEEK_SET);   // seek back to beginning of file
-            // printf("reading length %d\n",send_len);
-            // status = read(file_fd, (void *)send_buf, send_len);
 #else
             send_len = lseek(file_fd, 0, SEEK_END); // seek to end of file
             status = lseek(file_fd, 0, SEEK_SET);   // seek back to beginning of file
@@ -355,8 +418,8 @@ void *socket_main(void *node_addr)
             /* write to client */
             syslog(LOG_INFO, "Sending to the client\n");
             status = send(new_sockfd, (void *)send_buf, send_len, 0); /*May be is not sending TODO:*/
-            printf("send log: %d\n",status);
-            syslog(LOG_INFO, "send log: %d",status);
+            printf("send log: %d\n", status);
+            syslog(LOG_INFO, "send log: %d", status);
             if (status == -1)
             {
                 /* error */
