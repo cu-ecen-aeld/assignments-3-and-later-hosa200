@@ -49,6 +49,8 @@ typedef TAILQ_HEAD(head_s, node) head_t;
 int sockfd;
 pthread_mutex_t file_mutex = PTHREAD_MUTEX_INITIALIZER;
 struct addrinfo *res;
+bool file_opened_already = false;
+int file_fd;
 
 /* local functions */
 /* handler for SIGINT and SIGTERM */
@@ -231,7 +233,6 @@ void *socket_main(void *node_addr)
     int recv_len = 0;
     int send_len = 0;
     int curr_off = 0;
-    int file_fd;
     int status;
     int new_sockfd;
     int tmp_read_len;
@@ -292,11 +293,13 @@ void *socket_main(void *node_addr)
                     ((node_t *)node_addr)->thrd_comp = true;
                     return (void *)me;
                 }
+                file_opened_already = true;
                 printf("Io control mode\n");
                 syslog(LOG_INFO, "Io control mode\n");
                 seekto.write_cmd = atoi(recv_buf + 19);
                 seekto.write_cmd_offset = atoi(recv_buf + 21);
-                if (ioctl(file_fd, AESDCHAR_IOCSEEKTO, &seekto) != 0)
+                curr_off = ioctl(file_fd, AESDCHAR_IOCSEEKTO, &seekto);
+                if (curr_off < 0)
                 {
                     /* error */
                     printf("Error in IO control:  %s\n", strerror(errno));
@@ -305,6 +308,8 @@ void *socket_main(void *node_addr)
                     return (void *)me;
                 }
                 printf("byte is %d and offset is %d\n", seekto.write_cmd, seekto.write_cmd_offset);
+                /* release mutex */
+                pthread_mutex_unlock(&file_mutex);
                 // syslog(LOG_INFO, "byte is %d and offset is %d, closing\n", seekto.write_cmd, seekto.write_cmd_offset);
                 // if (close(file_fd) == -1)
                 //         syslog(LOG_INFO, "Error closing the file: %s\n", FILE_NAME);
@@ -314,6 +319,7 @@ void *socket_main(void *node_addr)
                 /* open file to recieve data */
                 /* take mutex */
                 pthread_mutex_lock(&file_mutex);
+
                 file_fd = open(FILE_NAME, O_WRONLY | O_CREAT | O_APPEND, 0644);
                 if (file_fd == -1)
                 {
@@ -354,6 +360,7 @@ void *socket_main(void *node_addr)
             /* open file to read data */
             /* take mutex */
             pthread_mutex_lock(&file_mutex);
+
             file_fd = open(FILE_NAME, O_RDONLY, 0644);
             if (file_fd == -1)
             {
@@ -365,6 +372,7 @@ void *socket_main(void *node_addr)
                 ((node_t *)node_addr)->thrd_comp = true;
                 return (void *)me;
             }
+
 #ifdef USE_AESD_CHAR_DEVICE
             // send_len = 0;
             // while (1)
@@ -378,20 +386,33 @@ void *socket_main(void *node_addr)
             //     else
             //         break;
             // }
-            curr_off = lseek(file_fd, 0, SEEK_CUR);
+            if (file_opened_already)
+            {
+                file_opened_already = false;
+                curr_off = lseek(file_fd, curr_off, SEEK_SET);
+            }
+            else
+            {
+                curr_off = lseek(file_fd, 0, SEEK_CUR);
+            }
             send_len = lseek(file_fd, 0, SEEK_END);      // seek to end of file
             status = lseek(file_fd, curr_off, SEEK_SET); // seek back to beginning of file
             printf("reading length %d\n", send_len);
             tmp_read_len = send_len;
-            while (1)
             {
-                status = read(file_fd, (void *)send_buf + (send_len - tmp_read_len), tmp_read_len);
-                if (status <= 0)
-                    break;
-                else
+                int tmp_send_len = 0;
+                while (1)
                 {
-                    tmp_read_len -= status;
+                    status = read(file_fd, (void *)send_buf + (send_len - tmp_read_len), tmp_read_len);
+                    if (status <= 0)
+                        break;
+                    else
+                    {
+                        tmp_read_len -= status;
+                        tmp_send_len += status;
+                    }
                 }
+                send_len = tmp_send_len;
             }
 #else
             send_len = lseek(file_fd, 0, SEEK_END); // seek to end of file

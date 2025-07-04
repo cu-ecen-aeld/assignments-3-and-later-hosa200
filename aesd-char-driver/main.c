@@ -93,7 +93,7 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
         }
         else
         {
-            tmp_count = aesd_device->read_buf->size;
+            // tmp_count = aesd_device->read_buf->size;
             PDEBUG("data numbers are %d as buf", tmp_count);
         }
 
@@ -303,6 +303,7 @@ long aesd_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
         }
         off += seekto.write_cmd_offset;
         filp->f_pos = off;
+        retval = off;
         PDEBUG("Command is valid and new file offset is %d", off);
         mutex_unlock(&dev->lock);
         return retval;
