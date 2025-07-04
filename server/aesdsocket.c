@@ -398,6 +398,7 @@ void *socket_main(void *node_addr)
             send_len = lseek(file_fd, 0, SEEK_END);      // seek to end of file
             status = lseek(file_fd, curr_off, SEEK_SET); // seek back to beginning of file
             printf("reading length %d\n", send_len);
+            syslog(LOG_INFO, "reading length %d\n", send_len);
             tmp_read_len = send_len;
             {
                 int tmp_send_len = 0;
@@ -460,6 +461,7 @@ void *socket_main(void *node_addr)
         }
     }
     printf("Exiting thread: %ld\n", me);
+    syslog(LOG_INFO, "Exiting thread: %ld\n", me);
     ((node_t *)node_addr)->thrd_comp = true;
     return (void *)me;
 }
