@@ -17,7 +17,7 @@
 #include <time.h>
 #include <stdbool.h>
 #include <sys/ioctl.h>
-#include "aesd_ioctl.h"
+#include "../aesd-char-driver/aesd_ioctl.h"
 
 /* Defines */
 #define USE_AESD_CHAR_DEVICE 1
